@@ -58,7 +58,22 @@ $xamlRight = @"
                 Background="$RightColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                Margin="0" />
+                Margin="0">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        CornerRadius="20,0,0,20">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+        </Button>
     </Grid>
 </Window>
 "@
@@ -74,7 +89,22 @@ $xamlLeft = @"
                 Background="$LeftColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                Margin="0" />
+                Margin="0">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        CornerRadius="0,20,20,0">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Button.Style>
+        </Button>
     </Grid>
 </Window>
 "@
