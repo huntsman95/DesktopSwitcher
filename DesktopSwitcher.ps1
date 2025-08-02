@@ -50,12 +50,14 @@ $WS_EX_NOACTIVATE = 0x08000000
 # XAML for the right window and button
 $xamlRight = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Opacity="0.5">
     <Grid>
-        <Button Name="RightDesktopSwitchBtn" Content="&gt;"
+        <Button Name="RightDesktopSwitchBtn" Content="&#xf0da;"
                 Background="$RightColor" Foreground="White"
+                FontFamily="$PSScriptRoot\fonts\Font Awesome 7 Free-Solid-900.otf#Font Awesome 7 Free Solid"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Margin="0">
@@ -81,12 +83,14 @@ $xamlRight = @"
 # XAML for the left window and button
 $xamlLeft = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Opacity="0.5">
     <Grid>
-        <Button Name="LeftDesktopSwitchBtn" Content="&lt;"
+        <Button Name="LeftDesktopSwitchBtn" Content="&#xf0d9;"
                 Background="$LeftColor" Foreground="White"
+                FontFamily="$PSScriptRoot\fonts\Font Awesome 7 Free-Solid-900.otf#Font Awesome 7 Free Solid"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Margin="0">
@@ -110,12 +114,10 @@ $xamlLeft = @"
 "@
 
 # Load XAML for right window
-$readerRight = [System.Xml.XmlNodeReader]::new([xml]$xamlRight)
-$windowRight = [Windows.Markup.XamlReader]::Load($readerRight)
+$windowRight = [Windows.Markup.XamlReader]::Parse($xamlRight)
 
 # Load XAML for left window
-$readerLeft = [System.Xml.XmlNodeReader]::new([xml]$xamlLeft)
-$windowLeft = [Windows.Markup.XamlReader]::Load($readerLeft)
+$windowLeft = [Windows.Markup.XamlReader]::Parse($xamlLeft)
 
 # Get screen dimensions
 $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
