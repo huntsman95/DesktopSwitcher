@@ -1,4 +1,4 @@
-Import-Module .\VirtualDesktop.dll
+Import-Module $PSScriptRoot\VirtualDesktop.dll
 
 Add-Type -AssemblyName PresentationFramework
 
