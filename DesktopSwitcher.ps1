@@ -86,13 +86,13 @@ $windowRight.Top = $height - $windowRight.Height - 60
 $windowLeft.Left = 20
 $windowLeft.Top = $height - $windowLeft.Height - 60
 
-# Right button click event (Calendar)
+# Right button click event
 $buttonRight = $windowRight.FindName("RightDesktopSwitchBtn")
 $buttonRight.Add_Click({
         [WindowsDesktop.VirtualDesktop]::GetDesktops().GetRight().Switch()
     })
 
-# Left button click event (Tasks - you can change this URL)
+# Left button click event
 $buttonLeft = $windowLeft.FindName("LeftDesktopSwitchBtn")
 $buttonLeft.Add_Click({
         $id = [WindowsDesktop.VirtualDesktop]::GetDesktops().GetLeft().Id.ToString()
