@@ -1,3 +1,16 @@
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [ValidateSet("Black","Blue","Green","Purple","Yellow","Orange")]
+    [string]
+    $LeftColor = "Blue"
+    ,
+    [Parameter()]
+    [ValidateSet("Black", "Blue", "Green", "Purple", "Yellow", "Orange")]
+    [string]
+    $RightColor = "Blue"
+)
+
 Import-Module $PSScriptRoot\VirtualDesktop.dll
 
 Add-Type -AssemblyName PresentationFramework
@@ -42,7 +55,7 @@ $xamlRight = @"
         Opacity="0.5">
     <Grid>
         <Button Name="RightDesktopSwitchBtn" Content="&gt;&gt;&gt;"
-                Background="Blue" Foreground="White"
+                Background="$RightColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Margin="0" />
@@ -58,7 +71,7 @@ $xamlLeft = @"
         Opacity="0.5">
     <Grid>
         <Button Name="LeftDesktopSwitchBtn" Content="&lt;&lt;&lt;"
-                Background="Green" Foreground="White"
+                Background="$LeftColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Margin="0" />
