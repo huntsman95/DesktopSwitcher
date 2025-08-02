@@ -189,13 +189,22 @@ $script:windowRight.Show()
 $script:windowLeft.Show()
 
 # Cleanup function
+$script:isExiting = $false
 $cleanup = {
-    @($script:windowRight, $script:windowLeft) | Where-Object { $_ -and $_.IsLoaded } | ForEach-Object { $_.Close() }
-    if ($script:trayIcon) {
-        $script:trayIcon.Visible = $false
-        $script:trayIcon.Dispose()
-    }
-    [System.Windows.Forms.Application]::Exit()
+    if ($script:isExiting) { return }
+    $script:isExiting = $true
+    
+    try {
+        @($script:windowRight, $script:windowLeft) | Where-Object { $_ -and $_.IsLoaded } | ForEach-Object { 
+            try { $_.Close() } catch { }
+        }
+        if ($script:trayIcon) {
+            try {
+                $script:trayIcon.Visible = $false
+                $script:trayIcon.Dispose()
+            } catch { }
+        }
+    } catch { }
 }
 
 # Create system tray icon
@@ -205,19 +214,29 @@ $script:trayIcon = New-TrayIcon -ExitAction $cleanup
 $script:windowRight.Add_Closed($cleanup)
 $script:windowLeft.Add_Closed($cleanup)
 
+# Handle Ctrl+C gracefully
+$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $cleanup
+
 # Keep the application running
 try {
     $dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
-    while ($script:windowRight.IsLoaded -or $script:windowLeft.IsLoaded) {
+    while (($script:windowRight.IsLoaded -or $script:windowLeft.IsLoaded) -and -not $script:isExiting) {
         try {
             # Process WPF events
             $dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
             # Process Windows Forms events (for tray icon)
             [System.Windows.Forms.Application]::DoEvents()
         }
-        catch { }
+        catch { 
+            if ($_.Exception -is [System.Management.Automation.PipelineStoppedException]) {
+                break
+            }
+        }
         Start-Sleep -Milliseconds 50
     }
+}
+catch [System.Management.Automation.PipelineStoppedException] {
+    # Handle Ctrl+C gracefully
 }
 finally {
     & $cleanup
