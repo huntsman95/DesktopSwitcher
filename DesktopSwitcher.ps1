@@ -14,6 +14,8 @@ param (
 Import-Module $PSScriptRoot\VirtualDesktop.dll
 
 Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 # Define Windows API functions (only what we actually use)
 if (-not ([System.Management.Automation.PSTypeName]'Win32Functions.Win32Functions').Type) {
@@ -82,9 +84,9 @@ function Set-WindowProperties {
     
     # Set up window style before showing
     $Window.add_SourceInitialized({
-        param($sender, $e)
+        param($sourceWindow, $e)
         try {
-            $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($sender)).Handle
+            $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($sourceWindow)).Handle
             if ($hwnd -ne [System.IntPtr]::Zero) {
                 $exStyle = [Win32Functions.Win32Functions]::GetWindowLong($hwnd, $script:GWL_EXSTYLE)
                 $null = [Win32Functions.Win32Functions]::SetWindowLong($hwnd, $script:GWL_EXSTYLE, $exStyle -bor $script:WS_EX_TOOLWINDOW -bor $script:WS_EX_NOACTIVATE)
@@ -102,53 +104,119 @@ function Set-WindowProperties {
     }
 }
 
+# Helper function to create system tray icon
+function New-TrayIcon {
+    param(
+        [scriptblock]$ExitAction
+    )
+    
+    # Create NotifyIcon
+    $trayIcon = New-Object System.Windows.Forms.NotifyIcon
+    $trayIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon("$PSScriptRoot\icons\icon.ico")
+    $trayIcon.Text = "Desktop Switcher - Click buttons on screen edges to switch virtual desktops"
+    $trayIcon.Visible = $true
+    
+    # Create context menu
+    $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
+    
+    # Add Show/Hide Windows menu item
+    $toggleMenuItem = New-Object System.Windows.Forms.ToolStripMenuItem
+    $toggleMenuItem.Text = "Toggle Windows Visibility"
+    $toggleMenuItem.Add_Click({
+        if ($script:windowRight.Visibility -eq [System.Windows.Visibility]::Visible) {
+            $script:windowRight.Hide()
+            $script:windowLeft.Hide()
+        } else {
+            $script:windowRight.Show()
+            $script:windowLeft.Show()
+        }
+    })
+    $contextMenu.Items.Add($toggleMenuItem)
+    
+    # Add separator
+    $contextMenu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
+    
+    # Add Exit menu item
+    $exitMenuItem = New-Object System.Windows.Forms.ToolStripMenuItem
+    $exitMenuItem.Text = "Exit"
+    $exitMenuItem.Add_Click($ExitAction)
+    $contextMenu.Items.Add($exitMenuItem)
+    
+    # Assign context menu to tray icon
+    $trayIcon.ContextMenuStrip = $contextMenu
+    
+    # Add double-click event to toggle windows
+    $trayIcon.Add_DoubleClick({
+        if ($script:windowRight.Visibility -eq [System.Windows.Visibility]::Visible) {
+            $script:windowRight.Hide()
+            $script:windowLeft.Hide()
+        } else {
+            $script:windowRight.Show()
+            $script:windowLeft.Show()
+        }
+    })
+    
+    return $trayIcon
+}
+
 # Create windows using the helper function
 $xamlRight = New-DesktopSwitchWindow -ButtonName "RightDesktopSwitchBtn" -Content "&#xf0da;" -Color $RightColor -CornerRadius "20,0,0,20"
 $xamlLeft = New-DesktopSwitchWindow -ButtonName "LeftDesktopSwitchBtn" -Content "&#xf0d9;" -Color $LeftColor -CornerRadius "0,20,20,0"
 
 # Load XAML and create windows
-$windowRight = [Windows.Markup.XamlReader]::Parse($xamlRight)
-$windowLeft = [Windows.Markup.XamlReader]::Parse($xamlLeft)
+$script:windowRight = [Windows.Markup.XamlReader]::Parse($xamlRight)
+$script:windowLeft = [Windows.Markup.XamlReader]::Parse($xamlLeft)
 
 # Store button names in window tags for helper function
-$windowRight.Tag = "RightDesktopSwitchBtn"
-$windowLeft.Tag = "LeftDesktopSwitchBtn"
+$script:windowRight.Tag = "RightDesktopSwitchBtn"
+$script:windowLeft.Tag = "LeftDesktopSwitchBtn"
 
 # Get screen dimensions and position windows
 $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
 $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
 
-$windowRight.Left = $screen - $windowRight.Width
-$windowRight.Top = ($height - $windowRight.Height) / 2
-$windowLeft.Left = 0
-$windowLeft.Top = ($height - $windowLeft.Height) / 2
+$script:windowRight.Left = $screen - $script:windowRight.Width
+$script:windowRight.Top = ($height - $script:windowRight.Height) / 2
+$script:windowLeft.Left = 0
+$script:windowLeft.Top = ($height - $script:windowLeft.Height) / 2
 
 # Configure window properties and event handlers
-Set-WindowProperties -Window $windowRight -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetRight().Switch() }
-Set-WindowProperties -Window $windowLeft -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetLeft().Switch() }
+Set-WindowProperties -Window $script:windowRight -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetRight().Switch() }
+Set-WindowProperties -Window $script:windowLeft -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetLeft().Switch() }
 
 # Show windows
-$windowRight.Show()
-$windowLeft.Show()
+$script:windowRight.Show()
+$script:windowLeft.Show()
 
 # Cleanup function
 $cleanup = {
-    @($windowRight, $windowLeft) | Where-Object { $_ -and $_.IsLoaded } | ForEach-Object { $_.Close() }
+    @($script:windowRight, $script:windowLeft) | Where-Object { $_ -and $_.IsLoaded } | ForEach-Object { $_.Close() }
+    if ($script:trayIcon) {
+        $script:trayIcon.Visible = $false
+        $script:trayIcon.Dispose()
+    }
+    [System.Windows.Forms.Application]::Exit()
 }
 
+# Create system tray icon
+$script:trayIcon = New-TrayIcon -ExitAction $cleanup
+
 # Handle window closed events
-$windowRight.Add_Closed($cleanup)
-$windowLeft.Add_Closed($cleanup)
+$script:windowRight.Add_Closed($cleanup)
+$script:windowLeft.Add_Closed($cleanup)
 
 # Keep the application running
 try {
     $dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
-    while ($windowRight.IsLoaded -or $windowLeft.IsLoaded) {
+    while ($script:windowRight.IsLoaded -or $script:windowLeft.IsLoaded) {
         try {
+            # Process WPF events
             $dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
+            # Process Windows Forms events (for tray icon)
+            [System.Windows.Forms.Application]::DoEvents()
         }
         catch { }
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 50
     }
 }
 finally {
