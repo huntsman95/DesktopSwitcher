@@ -50,11 +50,11 @@ $WS_EX_NOACTIVATE = 0x08000000
 # XAML for the right window and button
 $xamlRight = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Width="100" Height="60" WindowStyle="None" AllowsTransparency="True"
+        Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Opacity="0.5">
     <Grid>
-        <Button Name="RightDesktopSwitchBtn" Content="&gt;&gt;&gt;"
+        <Button Name="RightDesktopSwitchBtn" Content="&gt;"
                 Background="$RightColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -66,11 +66,11 @@ $xamlRight = @"
 # XAML for the left window and button
 $xamlLeft = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Width="100" Height="60" WindowStyle="None" AllowsTransparency="True"
+        Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Opacity="0.5">
     <Grid>
-        <Button Name="LeftDesktopSwitchBtn" Content="&lt;&lt;&lt;"
+        <Button Name="LeftDesktopSwitchBtn" Content="&lt;"
                 Background="$LeftColor" Foreground="White"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -92,11 +92,11 @@ $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
 $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
 
 # Set right window position (bottom right)
-$windowRight.Left = $screen - $windowRight.Width - 20
+$windowRight.Left = $screen - $windowRight.Width
 $windowRight.Top = $height - $windowRight.Height - 60
 
 # Set left window position (bottom left)
-$windowLeft.Left = 20
+$windowLeft.Left = 0
 $windowLeft.Top = $height - $windowLeft.Height - 60
 
 # Right button click event
