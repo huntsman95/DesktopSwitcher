@@ -89,14 +89,13 @@ $windowLeft.Top = $height - $windowLeft.Height - 60
 # Right button click event
 $buttonRight = $windowRight.FindName("RightDesktopSwitchBtn")
 $buttonRight.Add_Click({
-        [WindowsDesktop.VirtualDesktop]::GetDesktops().GetRight().Switch()
+        [WindowsDesktop.VirtualDesktop]::Current.GetRight().Switch()
     })
 
 # Left button click event
 $buttonLeft = $windowLeft.FindName("LeftDesktopSwitchBtn")
 $buttonLeft.Add_Click({
-        $id = [WindowsDesktop.VirtualDesktop]::GetDesktops().GetLeft().Id.ToString()
-        [WindowsDesktop.VirtualDesktop]::FromId($id).Switch()
+        [WindowsDesktop.VirtualDesktop]::Current.GetLeft().Switch()
     })
 
 
