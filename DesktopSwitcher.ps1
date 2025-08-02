@@ -15,48 +15,40 @@ Import-Module $PSScriptRoot\VirtualDesktop.dll
 
 Add-Type -AssemblyName PresentationFramework
 
-# Define Windows API functions at the top level
-Add-Type -MemberDefinition @'
-[DllImport("user32.dll")]
-public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
+# Define Windows API functions (only what we actually use)
+if (-not ([System.Management.Automation.PSTypeName]'Win32Functions.Win32Functions').Type) {
+    Add-Type -MemberDefinition @'
 [DllImport("user32.dll")]
 public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
 [DllImport("user32.dll")]
 public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-[DllImport("user32.dll", SetLastError = true)]
-public static extern IntPtr FindWindowEx(IntPtr hP, IntPtr hC, string sC, string sW);
-
-[DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-public static extern bool EnumWindows(EnumedWindow lpEnumFunc, System.Collections.ArrayList lParam);
-
-public delegate bool EnumedWindow(IntPtr handleWindow, System.Collections.ArrayList handles);
-
-public static bool GetWindowHandle(IntPtr windowHandle, System.Collections.ArrayList windowHandles)
-{
-    windowHandles.Add(windowHandle);
-    return true;
-}
 '@ -Name 'Win32Functions' -Namespace Win32Functions
+}
 
 # Constants for SetWindowLong
-$GWL_EXSTYLE = -20
-$WS_EX_TOOLWINDOW = 0x00000080
-$WS_EX_NOACTIVATE = 0x08000000
+$script:GWL_EXSTYLE = -20
+$script:WS_EX_TOOLWINDOW = 0x00000080
+$script:WS_EX_NOACTIVATE = 0x08000000
 
-
-# XAML for the right window and button
-$xamlRight = @"
+# Helper function to create window XAML
+function New-DesktopSwitchWindow {
+    param(
+        [string]$ButtonName,
+        [string]$Content,
+        [string]$Color,
+        [string]$CornerRadius
+    )
+    
+    return @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         Opacity="0.5">
     <Grid>
-        <Button Name="RightDesktopSwitchBtn" Content="&#xf0da;"
-                Background="$RightColor" Foreground="White"
+        <Button Name="$ButtonName" Content="$Content"
+                Background="$Color" Foreground="White"
                 FontFamily="$PSScriptRoot\fonts\Font Awesome 7 Free-Solid-900.otf#Font Awesome 7 Free Solid"
                 FontWeight="Bold" FontSize="16"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -67,7 +59,7 @@ $xamlRight = @"
                         <Setter.Value>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}"
-                                        CornerRadius="20,0,0,20">
+                                        CornerRadius="$CornerRadius">
                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                             </ControlTemplate>
@@ -79,131 +71,86 @@ $xamlRight = @"
     </Grid>
 </Window>
 "@
+}
 
-# XAML for the left window and button
-$xamlLeft = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="40" Height="100" WindowStyle="None" AllowsTransparency="True"
-        Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
-        Opacity="0.5">
-    <Grid>
-        <Button Name="LeftDesktopSwitchBtn" Content="&#xf0d9;"
-                Background="$LeftColor" Foreground="White"
-                FontFamily="$PSScriptRoot\fonts\Font Awesome 7 Free-Solid-900.otf#Font Awesome 7 Free Solid"
-                FontWeight="Bold" FontSize="16"
-                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                Margin="0">
-            <Button.Style>
-                <Style TargetType="Button">
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}"
-                                        CornerRadius="0,20,20,0">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </Button.Style>
-        </Button>
-    </Grid>
-</Window>
-"@
+# Helper function to configure window properties
+function Set-WindowProperties {
+    param(
+        [System.Windows.Window]$Window,
+        [scriptblock]$ClickAction
+    )
+    
+    # Set up window style before showing
+    $Window.add_SourceInitialized({
+        param($sender, $e)
+        try {
+            $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper($sender)).Handle
+            if ($hwnd -ne [System.IntPtr]::Zero) {
+                $exStyle = [Win32Functions.Win32Functions]::GetWindowLong($hwnd, $script:GWL_EXSTYLE)
+                $null = [Win32Functions.Win32Functions]::SetWindowLong($hwnd, $script:GWL_EXSTYLE, $exStyle -bor $script:WS_EX_TOOLWINDOW -bor $script:WS_EX_NOACTIVATE)
+            }
+        }
+        catch {
+            Write-Warning "Failed to set window properties: $($_.Exception.Message)"
+        }
+    })
+    
+    # Add click event to button
+    $button = $Window.FindName($Window.Tag)
+    if ($button) {
+        $button.Add_Click($ClickAction)
+    }
+}
 
-# Load XAML for right window
+# Create windows using the helper function
+$xamlRight = New-DesktopSwitchWindow -ButtonName "RightDesktopSwitchBtn" -Content "&#xf0da;" -Color $RightColor -CornerRadius "20,0,0,20"
+$xamlLeft = New-DesktopSwitchWindow -ButtonName "LeftDesktopSwitchBtn" -Content "&#xf0d9;" -Color $LeftColor -CornerRadius "0,20,20,0"
+
+# Load XAML and create windows
 $windowRight = [Windows.Markup.XamlReader]::Parse($xamlRight)
-
-# Load XAML for left window
 $windowLeft = [Windows.Markup.XamlReader]::Parse($xamlLeft)
 
-# Get screen dimensions
+# Store button names in window tags for helper function
+$windowRight.Tag = "RightDesktopSwitchBtn"
+$windowLeft.Tag = "LeftDesktopSwitchBtn"
+
+# Get screen dimensions and position windows
 $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
 $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
 
-# Set right window position (bottom right)
-
-# Set left window position (bottom left)
-
-# Center both windows vertically
 $windowRight.Left = $screen - $windowRight.Width
 $windowRight.Top = ($height - $windowRight.Height) / 2
-
 $windowLeft.Left = 0
 $windowLeft.Top = ($height - $windowLeft.Height) / 2
 
-# Right button click event
-$buttonRight = $windowRight.FindName("RightDesktopSwitchBtn")
-$buttonRight.Add_Click({
-        [WindowsDesktop.VirtualDesktop]::Current.GetRight().Switch()
-    })
-
-# Left button click event
-$buttonLeft = $windowLeft.FindName("LeftDesktopSwitchBtn")
-$buttonLeft.Add_Click({
-        [WindowsDesktop.VirtualDesktop]::Current.GetLeft().Switch()
-    })
-
-
-# Set up the window BEFORE showing it
-$windowRight.add_SourceInitialized({
-        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $windowRight).Handle
-        
-        # Make window a tool window and no-activate (excludes from Alt+Tab)
-        $exStyle = [Win32Functions.Win32Functions]::GetWindowLong($hwnd, $GWL_EXSTYLE)
-        $null = [Win32Functions.Win32Functions]::SetWindowLong($hwnd, $GWL_EXSTYLE, $exStyle -bor $WS_EX_TOOLWINDOW -bor $WS_EX_NOACTIVATE)
-    })
-
-$windowLeft.add_SourceInitialized({
-        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $windowLeft).Handle
-        
-        # Make window a tool window and no-activate (excludes from Alt+Tab)
-        $exStyle = [Win32Functions.Win32Functions]::GetWindowLong($hwnd, $GWL_EXSTYLE)
-        $null = [Win32Functions.Win32Functions]::SetWindowLong($hwnd, $GWL_EXSTYLE, $exStyle -bor $WS_EX_TOOLWINDOW -bor $WS_EX_NOACTIVATE)
-    })
+# Configure window properties and event handlers
+Set-WindowProperties -Window $windowRight -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetRight().Switch() }
+Set-WindowProperties -Window $windowLeft -ClickAction { [WindowsDesktop.VirtualDesktop]::Current.GetLeft().Switch() }
 
 # Show windows
-
 $windowRight.Show()
 $windowLeft.Show()
 
-# Handle CTRL+C and script termination to properly close the windows
+# Cleanup function
 $cleanup = {
-    if ($windowRight -and $windowRight.IsLoaded) {
-        $windowRight.Close()
-    }
-    if ($windowLeft -and $windowLeft.IsLoaded) {
-        $windowLeft.Close()
-    }
-    if ($app) {
-        $app.Shutdown()
-    }
+    @($windowRight, $windowLeft) | Where-Object { $_ -and $_.IsLoaded } | ForEach-Object { $_.Close() }
 }
 
 # Handle window closed events
-$windowRight.Add_Closed({
-        & $cleanup
-    })
+$windowRight.Add_Closed($cleanup)
+$windowLeft.Add_Closed($cleanup)
 
-$windowLeft.Add_Closed({
-        & $cleanup
-    })
-
-# Add a try/finally block to ensure cleanup on any exit
+# Keep the application running
 try {
-    # Keep the application running with a non-blocking dispatcher
     $dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
     while ($windowRight.IsLoaded -or $windowLeft.IsLoaded) {
         try {
             $dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
         }
-        catch{}
+        catch { }
         Start-Sleep -Milliseconds 100
     }
 }
 finally {
-    # Cleanup when script exits for any reason
     & $cleanup
 }
