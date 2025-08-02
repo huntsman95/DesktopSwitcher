@@ -92,12 +92,15 @@ $screen = [System.Windows.SystemParameters]::PrimaryScreenWidth
 $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
 
 # Set right window position (bottom right)
-$windowRight.Left = $screen - $windowRight.Width
-$windowRight.Top = $height - $windowRight.Height - 60
 
 # Set left window position (bottom left)
+
+# Center both windows vertically
+$windowRight.Left = $screen - $windowRight.Width
+$windowRight.Top = ($height - $windowRight.Height) / 2
+
 $windowLeft.Left = 0
-$windowLeft.Top = $height - $windowLeft.Height - 60
+$windowLeft.Top = ($height - $windowLeft.Height) / 2
 
 # Right button click event
 $buttonRight = $windowRight.FindName("RightDesktopSwitchBtn")
